@@ -1,0 +1,257 @@
+---
+title: "MA4790 HW1"
+author: "Cameron Cischke"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(AppliedPredictiveModeling)
+library(caret)
+data("ChemicalManufacturingProcess")
+
+```
+
+# Problem 1
+
+```{r part 1}
+nYield <- length(ChemicalManufacturingProcess$Yield)
+nMat <- length(ChemicalManufacturingProcess$BiologicalMaterial02)
+
+xYield <- round(mean(ChemicalManufacturingProcess$Yield), 3)
+xMat <- round(mean(ChemicalManufacturingProcess$BiologicalMaterial02), 3)
+
+
+sdYield <- round(sd(ChemicalManufacturingProcess$Yield), 3)
+sdMat <- round(sd(ChemicalManufacturingProcess$BiologicalMaterial02), 3)
+
+
+```
+## (1)
+
+<p>Outcome Sample Size: `r nYield`<p>
+<p>Predictor Sample Size: `r nMat`<p>
+
+<p>Outcome Mean: `r xYield`<p>
+<p>Predictor Mean: `r xMat`<p>
+
+<p>Outcome SD: `r sdYield`<p>
+<p>Predictor SD: `r sdMat`<p>
+
+## (2)
+``` {r part 2}
+hist(ChemicalManufacturingProcess$Yield,
+     main = "Histogram of Yield",
+     xlab = "Count",
+     ylab = "Probability")
+```
+
+<p>This histogram is unimodal, mostly normal with a slight right skew. There is
+one notable outlier on the far right of the histogram.<p>
+
+
+```{r part 3}
+
+cmp_train <- ChemicalManufacturingProcess[1:140, ]
+cmp_test <- ChemicalManufacturingProcess[-(1:140), ]
+
+cmp_train <- cmp_train[order(cmp_train$BiologicalMaterial02), ]
+cmp_test <- cmp_test[order(cmp_test$BiologicalMaterial02), ]
+
+
+
+```
+
+## (4)
+```{r part 4}
+par(mfrow=c(1,2))
+
+plot(Yield ~ BiologicalMaterial02, data = cmp_train,
+     xlab = "Material 2",
+     ylab = "Yield",
+     main = "Training Data",
+     xlim = c(45, 65),
+     ylim = c(35, 45))
+
+plot(Yield ~ BiologicalMaterial02, data = cmp_test,
+     xlab = "Material 2",
+     ylab = "Yield",
+     main = "Testing Data",
+     xlim = c(45, 65),
+     ylim = c(35, 45))
+
+```
+
+
+
+<p>The division we've been given puts much more of the data in the training group,
+which makes sense.<p>
+
+<p>Based on a cursory look, it seems that as the amount of material 2 increases,
+so does the chemical yield.<p>
+
+<p>There are some notable outliers towards the center of the training data graph. 
+These seem to have an average amount of material 2 and yet a very low chemical yield.<p>
+
+
+## (5)
+
+```{r part 5}
+
+m1 <- train(Yield ~ BiologicalMaterial02,
+            data = cmp_train,
+            method = "lm",
+            trControl = trainControl(method = "cv", number = 5))
+m1_rmse <- round(m1$results$RMSE, 3)
+
+par(mfrow = c(1,2))
+plot(Yield ~ BiologicalMaterial02, data = cmp_train,
+     xlab = "Material 2",
+     ylab = "Yield")
+abline(m1$finalModel$coefficients[1], m1$finalModel$coefficients[2], col ="red", lwd = 2)
+
+plot(Yield ~ predict(m1), data = cmp_train,
+     xlab = "Predicted",
+     ylab = "Observed")
+abline(0, 1, col = "red", lwd = 2)
+
+
+```
+<p>5-fold CV linear model RMSE: `r m1_rmse`<p>
+
+<p>This model follows the basic trend of the data but lacks any nuance. It
+ignores the outliers in both the middle and right ends of the plots.<p>
+
+## (6)
+```{r part 6}
+
+cmp_train$BM2 <- cmp_train$BiologicalMaterial02^2
+cmp_test$BM2 <- cmp_test$BiologicalMaterial02^2
+
+m2 <- train(Yield ~ BiologicalMaterial02 + BM2,
+            data = cmp_train,
+            method = "lm",
+            trControl = trainControl(method = "cv", number = 5))
+m2_rmse <- round(m2$results$RMSE, 3)
+
+par(mfrow = c(1,2))
+plot(Yield ~ BiologicalMaterial02, data = cmp_train,
+     xlab = "Material 2",
+     ylab = "Yield")
+lines(predict(m2) ~ cmp_train$BiologicalMaterial02, type = "l", col="red", lwd =2)
+
+plot(Yield ~ predict(m2), data = cmp_train,
+     xlab = "Predicted",
+     ylab = "Observed")
+abline(0, 1, col = "red", lwd = 2)
+
+
+```
+
+
+<p>Linear model + quadratic term with 5-fold CV RMSE: `r m2_rmse`<p>
+
+<p>This model shows no real improvement from the first one. There is a slight improvement
+towards considering the lower Yield values around values of 55 in Material 2, but this is 
+made pointless by the model failing to accurately account for values on the upper end of the
+graph. <p>
+
+
+```{r part 7, message=FALSE, warning=FALSE}
+set.seed(7)
+
+m3 <- train(Yield ~ BiologicalMaterial02,
+            data = cmp_train,
+            method = "earth",
+            tuneLength = 15,
+            trControl = trainControl(method = "cv", number = 5))
+
+m3_rmse <- round(mean(m3$results$RMSE), 3)
+
+par(mfrow = c(1,2))
+plot(Yield ~ BiologicalMaterial02, data = cmp_train,
+     xlab = "Material 2",
+     ylab = "Yield")
+lines(predict(m3) ~ cmp_train$BiologicalMaterial02, type = "l", col="red", lwd =2)
+
+plot(Yield ~ predict(m3), data = cmp_train,
+     xlab = "Predicted",
+     ylab = "Observed")
+abline(0, 1, col = "red", lwd = 2)
+
+
+```
+
+<p>MARS RMSE with 5-fold CV: `r m3_rmse`<p>
+<p>This model looks very jagged. If I had to guess it seems like it is overfitted to the training data, which it does predict better than the other two models. However, my guess is that when applied to testing data it will not be as effective.<p>
+
+
+## (8)
+
+```{r part 8}
+
+m1_y <- predict(m1)
+m2_y <- predict(m2)
+m3_y <- predict(m3)
+
+
+m1_train_rmse <- round(sqrt(sum((m1_y - cmp_train$Yield)^2) / length(m1_y)), 3)
+m2_train_rmse <- round(sqrt(sum((m2_y - cmp_train$Yield)^2) / length(m2_y)), 3)
+m3_train_rmse <- round(sqrt(sum((m3_y - cmp_train$Yield)^2) / length(m3_y)), 3)
+
+```
+
+
+<p>Linear model total training RMSE: `r m1_train_rmse`<p>
+<p>Linear with quadratic term total training RMSE: `r m2_train_rmse`<p>
+<p>MARS total training RMSE: `r m3_train_rmse`<p>
+
+
+## (9)
+
+```{r part 9}
+
+m1_y <- predict(m1, newdata = cmp_test)
+m2_y <- predict(m2, newdata = cmp_test)
+m3_y <- predict(m3, newdata = cmp_test)
+
+
+m1_test_rmse <- round(sqrt(sum((m1_y - cmp_test$Yield)^2) / length(m1_y)), 3)
+m2_test_rmse <- round(sqrt(sum((m2_y - cmp_test$Yield)^2) / length(m2_y)), 3)
+m3_test_rmse <- round(sqrt(sum((m3_y - cmp_test$Yield)^2) / length(m3_y)), 3)
+
+
+```
+
+<p>Linear model total testing RMSE: `r m1_test_rmse`<p>
+<p>Linear with quadratic term total testing RMSE: `r m2_test_rmse`<p>
+<p>MARS total testing RMSE: `r m3_test_rmse`<p>
+
+## (10)
+
+<p> All of these can be useful tools in the modeling process, though at different stages. Any RMSE values calculated using the training data can be useful for an initial determination of the type of model that will be best attempted, but should be taken lightly when determining final model selection. Holding this kind of RMSE evaluation with a loose grip will keep you from falling for a highly overfitted model such as the MARS model in this homework. The most valueable RMSE values are those calculated with cross-validation from the training data and those calculated from the testing data. This will give you much more information about how predictive your model actually is beyond just the data it was trained on, and as such will be much more useful in model selection. <p>
+
+## (11)
+
+```{r part 11}
+
+par(mfrow = c(1,2))
+
+plot(Yield ~ BiologicalMaterial02,
+     data = cmp_test,
+     xlab = "Material 2",
+     ylab = "Yield",
+     main = "Linear"
+     )
+lines(predict(m1, newdata = cmp_test) ~ cmp_test$BiologicalMaterial02, type = "l", col="red", lwd =2)
+
+plot(Yield ~ BiologicalMaterial02,
+     data = cmp_test,
+     xlab = "Material 2",
+     ylab = "Yield",
+     main = "Quadratic")
+lines(predict(m2, newdata = cmp_test) ~ cmp_test$BiologicalMaterial02, type = "l", col="red", lwd =2)
+
+```
+<p>These models have a similar RMSE, so are both acceptable.<p>
