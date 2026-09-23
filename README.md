@@ -6,3 +6,4 @@ Anything inside this folder is NOT my own work. This is class examples distribut
 
 # My Work
 This folder is the Rmd files I created for the homework assignments in this class. This IS my own work entirely.
+Most of the files should be able to be reproduced on any system, as the data used is from the Predictive Modeling package.
